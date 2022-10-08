@@ -71,7 +71,7 @@ function printTable(){
 
             if [[ "$(isEmptyString "${table}")" = 'false' ]]
             then
-                echo -e "${table}" | column -s '#' -t | awk '/^\+/{gsub(" ", "-", $0)}1'
+              echo -e "${table}" | column -s '#' -t | awk '/^\s\s\+/{gsub(" ", "-", $0)}1' | sed  's/--+/  +/'
             fi
         fi
     fi
@@ -112,16 +112,6 @@ function trimString(){
     local -r string="${1}"
     sed 's,^[[:blank:]]*,,' <<< "${string}" | sed 's,[[:blank:]]*$,,'
 }
-
-function generateFiles(){
-
-    echo '' > $tmp_file
-
-    while [ "$(cat $tmp_file | wc -l)" != "0" ]; do
-        curl -s -H "$USER_AGENT" "$url_machines_get_all?api_token=$API_TOKEN" -X GET -L | tr "'" '"' | sed 's/None/\"None\"/g' | sed 's/True/\"True\"/g' | sed 's/False/\"False\"/g' > $tmp_file
-    done
-}
-
 
 function help_panel(){
   echo -e "\n${color[purple]}==============================={[PANEL DE AYUDA]}=============================== ${color[end]}"
@@ -175,26 +165,26 @@ function unconfirmed_transactions(){
 
   for hash in $hashes; do 
     hashInfo=$(cat ut.tmp | grep -A 6 $hash)
-    hashUsd=$(echo -ne "$hashInfo" | tail -n 1)
-    hashBtc=$(echo -ne "$hashInfo" | tail -n 3 | head -n 1)
-    hashTime=$(echo -ne "$hashInfo" | tail -n 5 | head -n 1)
+    #hashUsd=$(echo -ne "$hashInfo" | tail -n 1)
+    #hashBtc=$(echo -ne "$hashInfo" | tail -n 3 | head -n 1)
+    #hashTime=$(echo -ne "$hashInfo" | tail -n 5 | head -n 1)
     #echo -e "${hash}_${hashUsd}_${hashBtc}_${hashTime}" >> ut.table
-    echo -e "${color[green]}$hash${color[end]}_${color[blue]}${hashUsd}${color[end]}_${color[yellow]}${hashBtc}${color[end]}_${color[gray]}${hashTime}${color[end]}" >> ut.table
+    echo -e "${hash}_$(echo -n "$hashInfo" | tail -n 1 | tr -d "Â US$.")_$(echo -n "$hashInfo" | tail -n 3 | head -n 1)_$(echo -n "$hashInfo" | tail -n 5 | head -n 1 )" >> ut.table
+    #echo -e "${hash}_${hashUsd}_${hashBtc}_${hashTime}" >> ut.table
   done
-  cat ut.table | tr '_' ' ' | awk '{print $2}' | grep -vi "cantidad" | tr -d "Â US$," > money
-  
-  money=0; cat money | while read $money_line
-  do
-    ((money+=$money_line))
-    echo $money
-  done
-    
-  #echo -ne "${color[red]}"
-  #printTable '_' "$(cat ut.table)"
-  echo
-  rm  ut.* 2>/dev/null
+  money=$(cat ut.table | awk -F '_' '{print $2}' | grep -vi "cantidad" | tr -d "Â US$." | tr ',' '.' | paste -sd+ | bc | tr '.' ',' | numfmt --grouping)
+  echo -e "${color[blue]}Cantidad Total_${money}\$${color[end]}" > ut.money
+  #echo -e "${color[green]}$hash${color[end]}_${color[blue]}${hashUsd}${color[end]}_${color[yellow]}${hashBtc}${color[end]}_${color[gray]}${hashTime}${color[end]}" >> ut.table
+  #cat ut.table | tr '_' ' ' | awk '{${color[green]}${1}${color[end]}_${color[blue]}${2}${color[end]}_${color[yellow]}${3}${color[end]}_${color[gray]}${4}${color[end]}}'
+  cat ut.table | tr '_' ' ' | awk -v g=$(echo -ne ${color[green]}) -v e=$(echo -ne ${color[end]}) -v b=$(echo -ne ${color[blue]}) -v y=$(echo -ne ${color[yellow]}) -v x=$(echo -ne ${color[gray]}) '{print g $1 e "_" b $2 e "_" y $3 e "_" x $5 e}' > ut.table 
+  #echo -e "${color[yellow]}"
+  printTable '_' "$(cat ut.table)"
+  printTable '_' "$(cat ut.money)"
+  #echo -e "${color[end]}"  
+  rm ut.* 2>/dev/null
   tput cnorm
 }
+
 
 paramCount=0
 numberOutput=0
@@ -203,7 +193,7 @@ while getopts "e:n:i:h" arg; do
     e) exploration_mode=$OPTARG; ((paramCount++));;
     h) help_panel;;
     i) ;;
-    n) numberOutput=$OPTARG; ((numberOutput++));;
+    n) numberOutput=$OPTARG; ((paramCount++));;
   esac
 done
 
