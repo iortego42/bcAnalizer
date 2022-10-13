@@ -117,11 +117,12 @@ function help_panel(){
   echo -e "\n${color[purple]}==============================={[PANEL DE AYUDA]}=============================== ${color[end]}"
   for i in {1..80}; do echo -ne "${color[grey]}_"; done
   echo -ne "${color[end]}\n"
-  echo -e "\n\t${color[yellow]}[-e]\tModo exploracion"
-  echo -e "\t\t${color[turquoise]}unconfirmed_transactions${color[gray]}:\t Listar todas las transaciones no confirmadas"
+  echo -e "\n\t${color[yellow]}[-e]\tModo exploracion: Lista todas las ultimas transaciones no confirmadas"
   echo -e "\t\t${color[turquoise]}inspect${color[gray]}:\t\t\t Inspecionar un hash de transaccion"
   echo -e "\t\t${color[turquoise]}address${color[gray]}:\t\t\t Inspecionar una transferencia de direccion"
   echo -e "\t${color[yellow]}[-n]\tMostrar ultimas "n" transacciones"
+  echo -e "\t${color[yellow]}[-a]\tRecibe una direccion de una transaccion"
+  echo -e "\t${color[yellow]}[-i]\tRecibe un Hash de una transaccion"
   echo -e "\t${color[yellow]}[-h]\tPanel de Ayuda"
   echo -e "\t\t${color[turquoise]}unconfirmed_transactions${color[gray]}:\t Listar todas las transaciones no confirmadas"
 
@@ -136,7 +137,7 @@ function help_panel(){
 
 unconfirmed_transactions="https://www.blockchain.com/es/btc/unconfirmed-transactions"
 inspect_transation_url="https://www.blockchain.com/es/btc/tx"
-inspect_address_url="https://www.blockchain.com/btc/address" 
+inspect_address_url="https://www.blockchain.com/es/btc/address" 
 
 #============================
 #
@@ -185,26 +186,96 @@ function unconfirmed_transactions(){
   tput cnorm
 }
 
+function inspect(){
+  echo "" > it.tmp
+  while [ "$(cat it.tmp | wc -l)" == "1" ]
+  do
+    curl -s "${inspect_transation_url}/$1" | html2text > it.tmp
+  done
+  
+  local hashEntrada=$(cat it.tmp | grep -A 100 "Entradas$" | grep -B 100 "Gastos$")
+  local hashSalida=$(cat it.tmp | grep -A 100 "Gastos$" | grep -B 100 "Comprar criptomonedas$")
+  local hashEstado=$(cat it.tmp | grep -A 6 "Hash" | grep -A 1 "Estado$" | tail -n 1)
+
+  if [ "$hashEstado" == "No confirmado" ]; then
+    hashEstado=$(echo -e "${color[red]}$hashEstado")
+  elif [ "$hashEstado" == "Confirmado" ]; then
+    hashEstado=$(echo -e "${color[green]}$hashEstado")
+  else
+    hashEstado=$(echo -e "${color[turquoise]}$hashEstado")
+  fi
+
+  echo -e "${color[green]}Entrada${color[end]}_${color[blue]}Cantidad${color[end]}" > it.entrada
+  while read line; do
+    if [[ "$line" == "Direcci"* ]]; then
+        read var
+        echo -ne "${color[green]}$var${color[end]}" >> it.entrada
+        read var
+        read var
+        echo -e "_${color[blue]}$var${color[end]}" >> it.entrada
+    fi
+  done <<< "$hashEntrada"
+ 
+  echo -e "${color[purple]}Salida${color[end]}_${color[blue]}Cantidad${color[end]}" > it.salida
+  while read line; do
+    if [[ "$line" == "Direcci"* ]]; then
+        read var
+        echo -ne "${color[purple]}$var${color[end]}" >> it.salida
+        read var
+        read var
+        echo -e "_${color[blue]}$var${color[end]}" >> it.salida
+    fi
+  done <<< "$hashSalida"
+
+  printTable '_' "$(echo -e "${color[gray]}Estado:_$hashEstado${color[end]}" )"
+  printTable '_' "$(cat it.entrada)"
+  printTable '_' "$(cat it.salida)"
+  rm it.* 2>/dev/null
+  tput cnorm
+}
+
+function inspect_address(){
+  echo "" > ia.tmp
+
+while [ "$(cat ia.tmp | wc -l)" == "1" ]
+  do
+    curl -s "${inspect_address_url}/$1" | html2text > ia.tmp 
+  done
+
+  cat ia.tmp
+}
 
 paramCount=0
 numberOutput=0
-while getopts "e:n:i:h" arg; do
-  case $arg in
-    e) exploration_mode=$OPTARG; ((paramCount++));;
-    h) help_panel;;
-    i) ;;
-    n) numberOutput=$OPTARG; ((paramCount++));;
+hash=""
+# while getopts "e:n:i:a:h" arg; do
+#   case $arg in
+#     e) exploration_mode=$OPTARG; ((paramCount++));;
+#     h) help_panel;;
+#     i) hash=$OPTARG;;
+#     a) address=$OPTARG;;
+#     n) numberOutput=$OPTARG; ((paramCount++));;
+#   esac
+# done
+tput civis 
+numberOutput=100
+while getopts ":n:" num; do
+  case "$num" in
+    n) numberOutput=$OPTARG;;
+    :) help_panel;;
   esac
 done
-
-tput civis
-
-if [ $paramCount -eq 0 ]; then
+OPTIND=1
+while getopts ":i:a:n:eh" arg; do 
+  case "$arg" in
+    e) unconfirmed_transactions $numberOutput; ((paramCount++));;
+    h) help_panel; ((paramCount++));;
+    i) inspect $OPTARG; ((paramCount++));;
+    a) inspect_address $OPTARG; ((paramCount++));;
+    :) help_panel;;
+  esac
+done
+if [ "$paramCount" == "0" ]; then
   help_panel
-
-else
-  if [ "$exploration_mode" == "unconfirmed_transactions" ]; then
-    unconfirmed_transactions $numberOutput
-  fi
-
 fi
+
