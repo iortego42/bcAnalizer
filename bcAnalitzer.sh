@@ -118,8 +118,6 @@ function help_panel(){
   for i in {1..80}; do echo -ne "${color[grey]}_"; done
   echo -ne "${color[end]}\n"
   echo -e "\n\t${color[yellow]}[-e]\tModo exploracion: Lista todas las ultimas transaciones no confirmadas"
-  echo -e "\t\t${color[turquoise]}inspect${color[gray]}:\t\t\t Inspecionar un hash de transaccion"
-  echo -e "\t\t${color[turquoise]}address${color[gray]}:\t\t\t Inspecionar una transferencia de direccion"
   echo -e "\t${color[yellow]}[-n]\tMostrar ultimas "n" transacciones"
   echo -e "\t${color[yellow]}[-a]\tRecibe una direccion de una transaccion"
   echo -e "\t${color[yellow]}[-i]\tRecibe un Hash de una transaccion"
@@ -178,10 +176,10 @@ function unconfirmed_transactions(){
   #echo -e "${color[green]}$hash${color[end]}_${color[blue]}${hashUsd}${color[end]}_${color[yellow]}${hashBtc}${color[end]}_${color[gray]}${hashTime}${color[end]}" >> ut.table
   #cat ut.table | tr '_' ' ' | awk '{${color[green]}${1}${color[end]}_${color[blue]}${2}${color[end]}_${color[yellow]}${3}${color[end]}_${color[gray]}${4}${color[end]}}'
   cat ut.table | tr '_' ' ' | awk -v g=$(echo -ne ${color[green]}) -v e=$(echo -ne ${color[end]}) -v b=$(echo -ne ${color[blue]}) -v y=$(echo -ne ${color[yellow]}) -v x=$(echo -ne ${color[gray]}) '{print g $1 e "_" b $2 e "_" y $3 e "_" x $5 e}' > ut.table 
-  #echo -e "${color[yellow]}"
+
   printTable '_' "$(cat ut.table)"
   printTable '_' "$(cat ut.money)"
-  #echo -e "${color[end]}"  
+   
   rm ut.* 2>/dev/null
   tput cnorm
 }
@@ -204,23 +202,27 @@ function inspect(){
   else
     hashEstado=$(echo -e "${color[turquoise]}$hashEstado")
   fi
-
+  
+  count=1
   echo -e "${color[green]}Entrada${color[end]}_${color[blue]}Cantidad${color[end]}" > it.entrada
   while read line; do
     if [[ "$line" == "Direcci"* ]]; then
         read var
-        echo -ne "${color[green]}$var${color[end]}" >> it.entrada
+        echo -ne "${count}: ${color[green]}$var${color[end]}" >> it.entrada
+        ((count++));
         read var
         read var
         echo -e "_${color[blue]}$var${color[end]}" >> it.entrada
     fi
   done <<< "$hashEntrada"
  
+  count=1
   echo -e "${color[purple]}Salida${color[end]}_${color[blue]}Cantidad${color[end]}" > it.salida
   while read line; do
     if [[ "$line" == "Direcci"* ]]; then
         read var
-        echo -ne "${color[purple]}$var${color[end]}" >> it.salida
+        echo -ne "${count}: ${color[purple]}$var${color[end]}" >> it.salida
+        ((count++));
         read var
         read var
         echo -e "_${color[blue]}$var${color[end]}" >> it.salida
@@ -237,28 +239,34 @@ function inspect(){
 function inspect_address(){
   echo "" > ia.tmp
 
-while [ "$(cat ia.tmp | wc -l)" == "1" ]
+  while [ "$(cat ia.tmp | wc -l)" == "1" ]
   do
-    curl -s "${inspect_address_url}/$1" | html2text > ia.tmp 
+    curl -s "${inspect_address_url}/$1" | html2text > ia.tmp
   done
+  ultimosHash=$(cat ia.tmp | grep -A 3 "Hash" | grep -v "\--")
+  echo -e "${color[yellow]}Transacciones${color[end]}_${color[green]}Total Recibido${color[end]}_${color[blue]}Total Enviado${color[end]}_${color[turquoise]}Saldo actual${color[end]}" > ia.table
+  echo -ne "${color[yellow]}$(cat ia.tmp | grep -A 1 "Transac" | head -n 2 | tail -n 1)${color[end]}_" >> ia.table
+  echo -ne "${color[green]}$(cat ia.tmp | grep -A 1 "Total recibido" | tail -n 1 | tr '.' ',')${color[end]}_" >> ia.table
+  echo -ne "${color[blue]}$(cat ia.tmp | grep -A 1 "Total enviado" | tail -n 1 | tr '.' ',')${color[end]}_" >> ia.table
+  echo -ne "${color[turquoise]}$(cat ia.tmp | grep -A 1 "Saldo final" | tail -n 1 | tr '.' ',')${color[end]}" >> ia.table
+  
 
-  cat ia.tmp
+  printTable '_' "$(cat ia.table)"
+  echo -e "_${color[red]}ULTIMOS HASHES DE DE ESTA DIRECCION${color[end]}" > ia.thash
+  hashes=$(cat ia.tmp | grep -A 1 "Hash" | grep -v "Hash\|\--")
+  count=1
+  for hash in $hashes; do
+    echo -e "${color[turquoise]}  ${count} ${color[end]}_${color[turquoise]}$hash${color[end]}" >> ia.thash
+    let count++
+  done
+  printTable '_' "$(cat ia.thash)"
+  rm ia.* 2>/dev/null
+  tput cnorm
 }
 
 paramCount=0
 numberOutput=0
-hash=""
-# while getopts "e:n:i:a:h" arg; do
-#   case $arg in
-#     e) exploration_mode=$OPTARG; ((paramCount++));;
-#     h) help_panel;;
-#     i) hash=$OPTARG;;
-#     a) address=$OPTARG;;
-#     n) numberOutput=$OPTARG; ((paramCount++));;
-#   esac
-# done
-tput civis 
-numberOutput=100
+tput civis
 while getopts ":n:" num; do
   case "$num" in
     n) numberOutput=$OPTARG;;
