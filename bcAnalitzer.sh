@@ -31,7 +31,7 @@ function printTable(){
     local -r data="$(removeEmptyLines "${2}")"
 
     if [[ "${delimiter}" != '' && "$(isEmptyString "${data}")" = 'false' ]]
-    then
+  then
         local -r numberOfLines="$(wc -l <<< "${data}")"
 
         if [[ "${numberOfLines}" -gt '0' ]]
@@ -121,9 +121,10 @@ function help_panel(){
   echo -e "\t${color[yellow]}[-n]\tMostrar ultimas "n" transacciones"
   echo -e "\t${color[yellow]}[-a]\tRecibe una direccion de una transaccion"
   echo -e "\t${color[yellow]}[-i]\tRecibe un Hash de una transaccion"
-  echo -e "\t${color[yellow]}[-h]\tPanel de Ayuda"
-  echo -e "\t\t${color[turquoise]}unconfirmed_transactions${color[gray]}:\t Listar todas las transaciones no confirmadas"
-
+  echo -e "\t${color[yellow]}[-h]\tPanel de Ayuda" 
+  echo -ne "${color[end]}"
+  for i in {1..80}; do echo -ne "${color[grey]}_"; done
+  echo -ne "${color[end]}\n\n"
   tput cnorm; exit 1
 }
 
